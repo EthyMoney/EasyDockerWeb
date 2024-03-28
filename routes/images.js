@@ -5,8 +5,8 @@ const docker = new Docker();
 
 const returnImagesRouter = (io) => {
     /* GET users listing. */
-    router.get('/', (req, res, next) => {
-        docker.listImages((err, listImages) => {
+    router.get('/', async (req, res, next) => {
+        docker.listImages(async (err, listImages) => {
             res.locals.imageName = (str) => {
                 if (str) {
                     if (str.length != 0) {
@@ -33,8 +33,68 @@ const returnImagesRouter = (io) => {
                 }
                 return str;
             };
+            // checkForUpdates
+            res.locals.checkForUpdates = async (name, tag) => {
+                try {
+                    if (name) {
+                        const imageNameWithTag = `${name}:${tag || 'latest'}`;
+                        const localImage = docker.getImage(imageNameWithTag);
+                        const localImageInspect = await localImage.inspect();
+                        if (localImageInspect.RepoDigests && localImageInspect.RepoDigests.length > 0) {
+                            const localImageDigest = localImageInspect.RepoDigests[0].split('@')[1];
+
+                            const imageName = encodeURIComponent(name);
+                            const imageTag = encodeURIComponent(tag || 'latest');
+
+                            // Fetch token
+                            const tokenResponse = await fetch(`https://auth.docker.io/token?service=registry.docker.io&scope=repository:${imageName}:pull`, {
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                }
+                            });
+                            const tokenData = await tokenResponse.json();
+                            const token = tokenData.token;
+
+                            console.log(token)
+
+                            // Fetch image manifest
+                            const response = await fetch(`https://registry-1.docker.io/v2/${imageName}/manifests/${imageTag}`, {
+                                headers: {
+                                    'Accept': 'application/vnd.docker.distribution.manifest.v2+json',
+                                    'Authorization': `Bearer ${token}`
+                                }
+                            });
+                            if (!response.ok) {
+                                console.error(`Error fetching remote image digest for ${name}:${tag || 'latest'}`);
+                                console.log(response.status, response.statusText);
+                                return null;
+                            }
+
+                            const remoteImageDigest = response.headers.get('docker-content-digest');
+
+                            return localImageDigest !== remoteImageDigest;
+                        } else {
+                            console.log(`No digest available for image: ${name}`);
+                            return false;
+                        }
+                    }
+                    return false;
+                } catch (error) {
+                    console.error(`Error checking for updates for image ${name}:${tag || 'latest'}`);
+                    console.error(error);
+                    return null;
+                }
+            };
+            const updateChecks = listImages.map(image => {
+                const name = res.locals.imageName(image.RepoTags);
+                const tag = res.locals.imageTag(image.RepoTags);
+                return res.locals.checkForUpdates(name, tag);
+            });
+            const updateResults = await Promise.all(updateChecks);
+            console.log('updateResults', updateResults)
             res.render('images', {
-                images: listImages
+                images: listImages,
+                updateResults: updateResults
             });
         });
     });

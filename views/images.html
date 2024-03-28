@@ -12,32 +12,42 @@
                 <th>REPOSITORY</th>
                 <th>TAG</th>
                 <th>Size</th>
+                <th>Update Status</th> <!-- New column header -->
                 <th>Action</th>
             </tr>
         </thead>
         <tbody>
             <% if(images){ %>
-            <% images.forEach(function(image,index){ %>
-            <tr>
-                <td>
-                    <%= imageName(image.RepoTags) %>
-                </td>
-                <td>
-                    <%= imageTag(image.RepoTags) %>
-                </td>
-                <td>
-                    <%= imageSize(image.Size) %> MB
-                </td>
-                <td>
-                    <a class="btn btn-danger btn-xs" data-loading-text="<i class='fa fa-spinner fa-spin fa-fw' aria-hidden='true'></i> Waiting..."
-                        href="/images/remove/<%= image.Id %>">
-                        <span class="glyphicon glyphicon-trash"></span> Remove
-                    </a>
-                </td>
-            </tr>
-            <% }) %>
-
-            <% } %>
+                <% images.forEach(function(image,index){ %>
+                    <tr>
+                        <td>
+                            <%= imageName(image.RepoTags) %>
+                        </td>
+                        <td>
+                            <%= imageTag(image.RepoTags) %>
+                        </td>
+                        <td>
+                            <%= imageSize(image.Size) %> MB
+                        </td>
+                        <td>
+                            <% if(updateResults[index] === null){ %>
+                                <span class="label label-default">Unknown</span>
+                            <% } else if(updateResults[index]){ %>
+                                <span class="label label-warning">Update available</span>
+                            <% } else { %>
+                                <span class="label label-success">Up to date</span>
+                            <% } %>
+                        </td>
+                        <td>
+                            <a class="btn btn-danger btn-xs"
+                                data-loading-text="<i class='fa fa-spinner fa-spin fa-fw' aria-hidden='true'></i> Waiting..."
+                                href="/images/remove/<%= image.Id %>">
+                                <span class="glyphicon glyphicon-trash"></span> Remove
+                            </a>
+                        </td>
+                    </tr>
+                    <% }) %>
+                        <% } %>
         </tbody>
     </table>
 </div>
